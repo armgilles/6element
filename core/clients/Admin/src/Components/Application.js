@@ -3,7 +3,7 @@
 var React = require('react');
 var Immutable = require('immutable');
 var Place = React.createFactory(require('./Place.js'));
-var PlaceOrphan = React.createFactory(require('./placeOrphan.js'));
+var PlaceOrphan = React.createFactory(require('./PlaceOrphan.js'));
 var DisplaySensor = React.createFactory(require('./displaySensor.js'));
 
 /*
@@ -49,10 +49,11 @@ var App = React.createClass({
         //var self = this;
         var props = this.props;
 
-        // console.log('APP props', props);
+        console.log('APP props', props);
         // console.log('APP state', state);
 
         var antIDList = [];
+        var placeIDList = [];
 
         props.sensorMap.forEach(function (sensor){
             antIDList.push(sensor.id);
@@ -66,6 +67,8 @@ var App = React.createClass({
         var myPlacesOrphan = [];
 
         props.placeMap.forEach(function (place) {
+
+            placeIDList.push({id : place.id, name : place.name}); // for DisplaySensor
             var mySensors = [];
             // console.log("place", place);
             if (place.sensor_ids.size !== 0) {
@@ -91,22 +94,31 @@ var App = React.createClass({
                     onChangeSensor: props.onChangeSensor
                 }));
             }
-
         });
-        
+
         // For all sensor
         var allSensor = [];
+
+        console.log("placeIDList", placeIDList);
+        var placeIDList = new Immutable.List(placeIDList.sort(function(a, b){
+            return a.id - b.id;
+        }));
+        console.log("placeIDList 2", placeIDList);
+
         props.sensorMap.forEach(function (sensor) {
-            // To find sensor without place
-            var sensorOrphan = 0;
-            if (!sensor.installed_at)
-                sensorOrphan = 1;
+            var place = props.placeMap.get(sensor.installed_at);
+
+            var placeName = place ? place.name : null;
+            var placeId = place ? place.id : null;
 
             allSensor.push(new DisplaySensor ({
                 key: sensor.id,
-                sensor, sensor,
-                sensorOrphan: sensorOrphan,
-                onChangeSensor: props.onChangeSensor 
+                sensor: sensor,
+                placeName: placeName,
+                placeId: placeId,
+                placeIDList: placeIDList,
+                onChangePlace: props.onChangePlace,
+                onChangeSensor: props.onChangeSensor
             }));
         });
         

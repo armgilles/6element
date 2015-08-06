@@ -19,10 +19,8 @@ interface placeProps{
 	    sense_status: string,
 	    updated_at: string
 	}],
-	placeName: string,
-    placeId: placeId,
-    onChangeSensor: function(),
-    onChangePlace: function()
+	orpha: bool
+    onChangeSensor: function()
 }
 
 interface AppState{
@@ -40,11 +38,10 @@ var DisplaySensor = React.createClass({
         var state = this.state;
 
         console.log('DISPLAYSENSOR props', props);
-        // console.log('DISPLAYSENSOR state', state);
+        console.log('DISPLAYSENSOR state', state);
 
         var classes = [
-            'displaySensor',
-            props.sensor.installed_at ? '' : 'orphan'
+            'sensor'
             // isSelected ? 'selected' : '',
             // props.ant.isUpdating ? 'updating' : '',
             // props.ant.quipu_status,
@@ -56,6 +53,8 @@ var DisplaySensor = React.createClass({
             React.DOM.ul({},
 
             	React.DOM.li({}, 
+                    React.DOM.div({}, 'Name'),
+                    // React.DOM.div({}, props.ant.id)
                     new Modifiable({
                         className: 'DisplaySensorName',
                         isUpdating: false,
@@ -65,12 +64,12 @@ var DisplaySensor = React.createClass({
                             field: 'name'
                         },
                         onChange: props.onChangeSensor,
-                    }),
-                    props.sensor.installed_at ? props.placeName : "Add me a place"
+                    })
                 ),
                 React.DOM.li({}, 
+                    React.DOM.div({}, 'Phone'),
                     new Modifiable({
-                        className: 'DisplaySensorPhoneNumber',
+                        className: 'DisplaySensorPhone_number',
                         isUpdating: false,
                         text: props.sensor.phone_number,
                         dbLink: {
