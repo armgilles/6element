@@ -20,8 +20,17 @@ module.exports = {
     },
     updateSensor: function(data){
         return sendReq('POST', '/updateSensor', data);
+    },
+    createPlace: function(data){
+        return sendReq('POST', '/createPlace', data);
+    },
+    removePlace: function(data){
+        return sendReq('POST', '/removePlace', data);
+    },
+    removeSensor: function(data){
+        return sendReq('POST', '/removeSensor', data);
+    },
+    createSensor: function(data){
+        return sendReq('POST', '/createSensor', data);
     }
-    // updateSensorPlace: function(date){
-    //     return sendReq('POST', '/updateSensorPlace', data);
-    // }
 };

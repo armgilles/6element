@@ -1,6 +1,7 @@
 "use strict";
 
 require('es6-shim');
+var spawn = require('child_process').spawn;
 
 var fs = require("fs");
 var join = require('path').join;
@@ -20,6 +21,18 @@ var sqlOptions = {
     omitComments: true
 };
 
+var generateDefinitions = function() {
+    return new Promise(function(resolve, reject) {
+        generateSqlDefinition(sqlOptions, function(err, stats) {
+            if (err) {
+                console.error(err);
+                reject(err);
+            }
+            fs.writeFileSync("./database/management/declarations.js", stats.buffer);
+            resolve();
+        });
+    });
+}
 
 gulp.task('init', function () {                                 
 
@@ -41,24 +54,25 @@ gulp.task('init', function () {
             .then(function(){
                 createTables()
                 .then(function(){
-                    hardCodedSensors()
-                    .then(function(){
-
-                        console.log("Dropped and created the tables.")
-
-                        // regeneate the declarations
-                        generateSqlDefinition(sqlOptions, function(err, stats) {
-                            if (err) {
-                                console.error(err);
-                                return;
-                            }
-                            fs.writeFileSync("./database/management/declarations.js", stats.buffer);
+                    if (!process.env.BACKUP) {
+                        console.log('no backup file');
+                        generateDefinitions()
+                        .then(function(){
+                            console.log("Dropped and created the tables.")
+                            hardCodedSensors();
+                        })
+                        .catch(function(err){
+                            console.error("Couldn't write the schema", err);
                         });
-                    })
-                    .catch(function(err){
-                        console.error("Couldn't write the schema", err);
-                    });
-                    
+                    }
+                    else {
+                        generateDefinitions()
+                        .then(console.log('definitions generated'))
+                        .catch(function(err){
+                            console.error("Couldn't write the schema", err);
+                        });
+                    }
+
                 }).catch(function(err){
                     console.error("Couldn't create tables", err);
                 });
@@ -66,7 +80,7 @@ gulp.task('init', function () {
                 console.error("Couldn't drop tables", err);
             });         
 
-                })
+        })
         .catch(function(err){
             console.error("Couldn't connect tables", err);
         });
@@ -93,6 +107,20 @@ gulp.task('serve-admin', function () {
     server.run(['./server/admin.js']);
 });
 
+gulp.task('serve-endpoint', function () {
+    var proc = spawn('node', ['./server/endpoint.js'])
+
+    proc.stdout.on('data', function(buffer) {
+        console.log(buffer.toString().replace('\n', ''));
+    })
+    proc.stderr.on('data', function(buffer) {
+        console.error(buffer.toString().replace('\n', ''));
+    })
+    proc.on('close', function(code) {
+        console.log('process closed with code ' + code)
+    })
+});
+
 gulp.task('build-admin', function(){
     browserifyShare('Admin');
 });
@@ -103,7 +131,7 @@ gulp.task('build-app', function(){
 
 gulp.task('server-stop', function(){
     server.stop();
-})
+});
 
 gulp.task('watch-app', function() {
     console.log('Watching');
@@ -134,7 +162,6 @@ gulp.task('watch-admin', function() {
     });
 
 });
-
 
 function browserifyShare(name){
     var b = browserify({
@@ -167,7 +194,7 @@ gulp.task('admin-dev', ['serve-admin', 'build-admin', 'watch-admin'], function()
 
 gulp.task('admin-prod', ['serve-admin', 'build-admin']);
 
-gulp.task('app-dev', ['init', 'serve-app', 'build-app', 'watch-app'], function(){
+gulp.task('app-dev', ['serve-app', 'build-app', 'watch-app'], function(){
     console.log('Starting app in dev');
 });
 

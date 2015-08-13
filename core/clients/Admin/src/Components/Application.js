@@ -2,9 +2,12 @@
 
 var React = require('react');
 var Immutable = require('immutable');
+var CreatorPlace = React.createFactory(require('./CreatorPlace.js'));
+var CreatorSensor = React.createFactory(require('./CreatorSensor.js'));
 var Place = React.createFactory(require('./Place.js'));
 var PlaceOrphan = React.createFactory(require('./PlaceOrphan.js'));
-var DisplaySensor = React.createFactory(require('./displaySensor.js'));
+var Sensor = React.createFactory(require('./Sensor.js'));
+var CommandManager = React.createFactory(require('./CommandManager.js'));
 
 /*
 
@@ -18,7 +21,7 @@ interface AppProps{
         sensor_ids : list[],
         type, string,
         updated_at, string
-        }
+    })
     sensorMap: Map (id => sensor{
         created_at: string,
         id: int,
@@ -31,46 +34,78 @@ interface AppProps{
         quipu_status: string,
         sense_status: string,
         updated_at: string
-        }
     }),
     onChangePlace: function(),
-    onChangeSensor: function()
+    onChangeSensor: function(),
+    onCreatePlace: function(),
+    onRemovePlace: function(),
+    onRemoveSensor: function(),
+    sendCommand: function()
 }
 interface AppState{
-    selectedTab: int
+    selectedAntSet: Set(antId)
 }
 
 */
 
 var App = React.createClass({
     displayName: 'App',
+    
+    getInitialState: function(){
+        return {
+            selectedAntSet: new Set()
+        };
+    },
+
+    updateAntSelection: function(antId){
+
+        var selectedAntSet = this.state.selectedAntSet;
+        
+        if (selectedAntSet.has(antId))
+            selectedAntSet.delete(antId);
+        else
+            selectedAntSet.add(antId);
+
+        this.setState({
+            selectedAntSet: selectedAntSet
+        });
+    },
+
+    clearAntSelection: function(){
+        this.setState({
+            selectedAntSet: new Set()
+        });
+    },
 
     render: function() {
-        //var self = this;
+        var self = this;
         var props = this.props;
+        var state = this.state;
 
-        console.log('APP props', props);
-        // console.log('APP state', state);
+        // console.log('APP props', props);
+        // console.log('APP state', this.state);
 
-        var antIDList = [];
         var placeIDList = [];
 
-        props.sensorMap.forEach(function (sensor){
-            antIDList.push(sensor.id);
+        // Initializing antFromNameMap
+        var tempMap = new Map();
+
+        props.sensorMap.forEach(function(sensor){
+            tempMap.set(sensor.name, sensor.id);
         });
 
-        var antIDset = new Immutable.Set(antIDList.sort(function(a, b){
-            return a - b;
-        }));
+        var antFromNameMap = new Immutable.Map(tempMap);
 
+        // Creating Place panel
         var myPlaces = [];
         var myPlacesOrphan = [];
 
         props.placeMap.forEach(function (place) {
 
-            placeIDList.push({id : place.id, name : place.name}); // for DisplaySensor
+            placeIDList.push({'id' : place.id, 'name' : place.name}); // for DisplaySensor
             var mySensors = [];
             // console.log("place", place);
+            
             if (place.sensor_ids.size !== 0) {
                 place.sensor_ids.forEach(function (sensor_id) {
                     mySensors.push(props.sensorMap.get(sensor_id));
@@ -79,9 +114,12 @@ var App = React.createClass({
                     key: place.id,
                     place: place,
                     mySensors: mySensors,
-                    antIDset: antIDset,
+                    antFromNameMap: antFromNameMap,
+                    selectedAntSet: state.selectedAntSet,
                     onChangePlace: props.onChangePlace,
-                    onChangeSensor: props.onChangeSensor
+                    onChangeSensor: props.onChangeSensor,
+                    onSelectedAnts: self.updateAntSelection,
+                    onRemovePlace: props.onRemovePlace
                 }));
             }
             else {
@@ -89,21 +127,30 @@ var App = React.createClass({
                 myPlacesOrphan.push(new PlaceOrphan ({
                     key: place.id,
                     place: place,
-                    antIDset: antIDset,
+                    antFromNameMap: antFromNameMap,
                     onChangePlace: props.onChangePlace,
-                    onChangeSensor: props.onChangeSensor
+                    onChangeSensor: props.onChangeSensor,
+                    onRemovePlace: props.onRemovePlace
                 }));
             }
         });
 
-        // For all sensor
-        var allSensor = [];
+        // Initializing placeIDMap (name => id)
+        var temp = {};
+        placeIDList.forEach(function (placeID) {
+            temp[placeID.name] = placeID.id;
+        })
 
-        console.log("placeIDList", placeIDList);
-        var placeIDList = new Immutable.List(placeIDList.sort(function(a, b){
-            return a.id - b.id;
-        }));
-        console.log("placeIDList 2", placeIDList);
+        var placeIDMap = new Immutable.Map(temp);
+    
+
+        // Creating Sensor panel
+        var allSensors = [];
+
+        // /!\ JE N ARRIVE PAS A SORT PAR NOM DE RC
+        // placeIDList.sort(function(a, b){
+        //     return a.name - b.name;
+        // })
 
         props.sensorMap.forEach(function (sensor) {
             var place = props.placeMap.get(sensor.installed_at);
@@ -111,25 +158,51 @@ var App = React.createClass({
             var placeName = place ? place.name : null;
             var placeId = place ? place.id : null;
 
-            allSensor.push(new DisplaySensor ({
+            allSensors.push(new Sensor ({
                 key: sensor.id,
                 sensor: sensor,
                 placeName: placeName,
                 placeId: placeId,
-                placeIDList: placeIDList,
+                placeIDMap: placeIDMap.delete(placeName),
                 onChangePlace: props.onChangePlace,
-                onChangeSensor: props.onChangeSensor
+                onChangeSensor: props.onChangeSensor,
+                onRemoveSensor: props.onRemoveSensor
             }));
         });
-        
+
+        // Creating Command Typer
+        var selectedAntMap = new Map();
+        state.selectedAntSet.forEach(function(id){
+            selectedAntMap.set(id, props.sensorMap.get(id).name);
+        });
+
+        var commandTyper = new CommandManager({
+            antMap: selectedAntMap,
+            isOpen: state.selectedAntSet.size > 0,
+            clearSelection: this.clearAntSelection,
+            sendCommand: function(command){
+                props.sendCommand(command, state.selectedAntSet);
+            }
+        });
+
         return React.DOM.div({id: 'myApp'},
-            React.DOM.div({id: 'adminTool'}, 
+
+            React.DOM.div({id: 'placePanel'}, 
+                new CreatorPlace ({
+                    onCreatePlace: props.onCreatePlace
+                }),
                 myPlaces,
                 myPlacesOrphan
             ),
-            React.DOM.div({id: 'panel'}, 
-                allSensor
-            )
+
+            React.DOM.div({id: 'sensorPanel'},
+                new CreatorSensor ({
+                    onCreateSensor: props.onCreateSensor
+                }), 
+                allSensors
+            ),
+            commandTyper
+
         );
     }
 });

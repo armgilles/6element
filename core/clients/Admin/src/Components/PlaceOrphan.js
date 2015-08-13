@@ -2,10 +2,8 @@
 
 var React = require('react');
 var Modifiable = React.createFactory(require('./Modifiable.js'));
-var Display_sensor_id = React.createFactory(require('./Display_sensor_id.js'));
-var Selector_sensor_id = React.createFactory(require('./Selector_sensor_id.js'));
-
-
+var AntPicker = React.createFactory(require('./AntPicker.js'));
+var DeleteButton = React.createFactory(require('./DeleteButton.js'));
 
 /*
 interface placeProps{
@@ -18,40 +16,55 @@ interface placeProps{
         sensor_ids: array
 
     },
-    antIDset : Set,
+    antFromNameMap : Map,
     onChangePlace: function(),
-    onChangeSensor: function()
+    onChangeSensor: function(),
+    onRemovePlace: functtion()
 }
 
 interface AppState{
+    isListOpen: boolean
 }
 
 */
 
-
+// MAYBE THIS COMPONENT SHOULD BE MERGED WITH PLACE
 var PlaceOrphan = React.createClass({
     displayName: 'PlaceOrphan',
 
     getInitialState: function(){
         return {
-            isOpen: false
+            isListOpen: false
         };
     },
 
-    setOpen: function(isOpen){
-        this.setState({isOpen: isOpen});
+    toggleList: function(){
+        this.setState(Object.assign(this.state, {
+            isListOpen: !this.state.isListOpen
+        }));
+    },
+
+    removePlace: function(){
+        var props = this.props;
+        var dbData = {
+            ants: [],
+            placeId: props.place.id
+        };
+
+        props.onRemovePlace(dbData);
     },
 
     render: function() {
-        // var self = this;
+        var self = this;
         var props = this.props;
         var state = this.state;
 
-        console.log('PLACE Orphan props', props);
-        console.log('PLACE Orphan state', state);
+        // console.log('PLACE Orphan props', props);
+        // console.log('PLACE Orphan state', state);
 
         var classes = [
-            'placeOrphan'
+            'place',
+            'orphan'
             // isSelected ? 'selected' : '',
             // props.ant.isUpdating ? 'updating' : '',
             // props.ant.quipu_status,
@@ -59,10 +72,14 @@ var PlaceOrphan = React.createClass({
         ];
 
         return React.DOM.div({className: classes.join(' ')},
+            new DeleteButton({
+                askForConfirmation: true,
+                onConfirm: this.removePlace
+            }),
             React.DOM.ul({},
                 React.DOM.li({}, 
                     new Modifiable({
-                        className: 'placeOrphanName',
+                        className: 'name',
                         isUpdating: false,
                         text: props.place.name,
                         dbLink: {
@@ -71,18 +88,21 @@ var PlaceOrphan = React.createClass({
                         },
                         onChange: props.onChangePlace
                     }),
-                    new Display_sensor_id({
-                        currentSensorId: 'Add sensor',
-                        isOpen: state.isOpen,
-                        setOpen: this.setOpen
-                    }),
-                    new Selector_sensor_id({
-                        antIDset: props.antIDset,
+                    React.DOM.div({
+                            className: 'ant-id clickable',
+                            onClick: self.toggleList
+                        },
+                        'Add Ant'
+                    ),
+                    new AntPicker({
+                        antFromNameMap: props.antFromNameMap,
                         currentSensorId: null,
-                        isOpen: state.isOpen,
+                        isOpen: state.isListOpen,
                         currentPlaceId: props.place.id,
-                        onChange: props.onChangeSensor,
-                        setOpen: this.setOpen
+                        onChange: function(dbData){
+                            self.toggleList();
+                            props.onChangeSensor(dbData);
+                        }
                     })
                 ),
                 React.DOM.li({}, 
